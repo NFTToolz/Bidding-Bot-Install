@@ -1,0 +1,77 @@
+services:
+  server:
+    image: ayenisholah/bidding-bot-server:latest
+    platform: linux/amd64
+    restart: always
+    ports:
+      - "3003:3003"
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017/BIDDING_BOT
+      - EMAIL_USERNAME=${EMAIL_USERNAME}
+      - EMAIL_PASSWORD=${EMAIL_PASSWORD}
+      - CLIENT_URL=${CLIENT_URL}
+      - NEXT_PUBLIC_CLIENT_URL=${NEXT_PUBLIC_CLIENT_URL}
+      - NEXT_PUBLIC_SERVER_WEBSOCKET=${NEXT_PUBLIC_SERVER_WEBSOCKET}
+      - OPENSEA_API_KEY=44b2408e1b284805a6c29c69f15e048f
+      - ALCHEMY_API_KEY=0rk2kbu11E5PDyaUqX1JjrNKwG7s4ty5
+      - REDIS_URI=redis://redis:6379
+      - PORT=3003
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - my_network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "http://localhost:3003/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  client:
+    image: ayenisholah/bidding-bot-client:latest
+    platform: linux/amd64
+    restart: always
+    ports:
+      - "3001:3001"
+    environment:
+      - REDIS_URI=redis://redis:6379
+      - MONGODB_URI=mongodb://mongodb:27017/BIDDING_BOT
+      - JWT_SECRET=NFTTOOLS TO THE MOON
+      - EMAIL_USERNAME=ayenisholah@gmail.com
+      - EMAIL_PASSWORD=rvwn mtuh hhpp lqrq
+      - CLIENT_URL=http://localhost:3001/
+      - NEXT_PUBLIC_CLIENT_URL=http://localhost:3001/
+      - NEXT_PUBLIC_SERVER_WEBSOCKET=ws://localhost:3003
+      - PORT=3001
+    depends_on:
+      - mongodb
+      - server
+      - redis
+    networks:
+      - my_network
+
+  mongodb:
+    image: mongo:latest
+    restart: unless-stopped
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - my_network
+
+  redis:
+    image: redis:latest
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    hostname: "redis"
+    networks:
+      - my_network
+
+volumes:
+  mongodb_data:
+  redis_data:
+
+networks:
+  my_network:
+    driver: bridge
