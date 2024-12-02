@@ -63,4 +63,21 @@ docker compose -f compose.prod.yaml up --build -d
 Write-Host "`nInstallation complete!" -ForegroundColor Green
 Write-Host "Your NFTTools installation is located at: $InstallDir" -ForegroundColor Cyan
 Write-Host "Visit your configured CLIENT_URL to access the interface." -ForegroundColor White
+
+# Ask user if they want to open the webpage
+$openBrowser = Read-Host "`nWould you like to open the interface in your default browser? (yes/no)"
+if ($openBrowser.ToLower() -eq 'yes' -or $openBrowser.ToLower() -eq 'y') {
+    # Get the client URL from .env file if it exists
+    if (Test-Path ".env") {
+        $envContent = Get-Content ".env" -Raw
+        if ($envContent -match 'CLIENT_URL=(.+)') {
+            $clientUrl = $matches[1].Trim()
+        }
+    }
+    
+    # Open the URL in default browser
+    Write-Host "Opening $clientUrl in your default browser..." -ForegroundColor Cyan
+    Start-Process $clientUrl
+}
+
 Pause
