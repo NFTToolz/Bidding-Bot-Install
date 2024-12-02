@@ -1,3 +1,7 @@
+# Download and run script in a temporary directory
+$TempDir = [System.IO.Path]::Combine($env:TEMP, "NFTTools-$(Get-Random)")
+New-Item -ItemType Directory -Path $TempDir -Force | Out-Null
+
 # Program Information
 Write-Host "=========================================" -ForegroundColor Cyan
 Write-Host "Welcome to the NFTTools Bidding Bot Setup" -ForegroundColor Cyan
@@ -5,18 +9,18 @@ Write-Host "=========================================" -ForegroundColor Cyan
 Write-Host "This script will set up and launch the NFTTools Bidding Bot using Docker Compose." -ForegroundColor White
 Write-Host "Ensure you have Docker installed before running this script." -ForegroundColor Yellow
 
-# Use relative paths based on where the script is executed
-$ScriptDirectory = $PSScriptRoot
+# Set working directory to temp location
+$ScriptDirectory = $TempDir
 $ComposeFileUrl = "https://raw.githubusercontent.com/NFTToolz/Bidding-Bot-Install/main/compose.prod.yaml"
-$LocalComposeFile = "$ScriptDirectory\compose.prod.yaml"
-$EnvFile = "$ScriptDirectory\.env"
+$LocalComposeFile = Join-Path $ScriptDirectory "compose.prod.yaml"
+$EnvFile = Join-Path $ScriptDirectory ".env"
 
 # Relaunch script as admin if not running with elevated privileges
 function Run-AsAdmin {
     if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
         Write-Host "This script needs to run with administrative privileges." -ForegroundColor Yellow
         Write-Host "Restarting the script as administrator..." -ForegroundColor Cyan
-        Start-Process powershell "-File $PSCommandPath" -Verb RunAs
+        Start-Process powershell "-NoProfile -ExecutionPolicy Bypass -Command `"iex ((New-Object System.Net.WebClient).DownloadString('YOUR_RAW_GITHUB_URL'))`"" -Verb RunAs
         Exit
     }
 }
@@ -147,3 +151,11 @@ Write-Host "=========================================" -ForegroundColor Cyan
 Write-Host "NFTTools Bidding Bot is now running!" -ForegroundColor Green
 Write-Host "=========================================" -ForegroundColor Cyan
 Write-Host "Visit the bot`'s web interface at your CLIENT_URL if configured." -ForegroundColor White
+
+# Cleanup temp directory on exit
+trap {
+    if (Test-Path $TempDir) {
+        Remove-Item -Path $TempDir -Recurse -Force
+    }
+    break
+}
