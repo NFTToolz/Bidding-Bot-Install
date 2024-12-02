@@ -33,6 +33,9 @@ $ComposeFileUrl = "https://raw.githubusercontent.com/NFTToolz/Bidding-Bot-Instal
 Write-Host "Downloading configuration files..." -ForegroundColor Cyan
 Invoke-WebRequest -Uri $ComposeFileUrl -OutFile "compose.prod.yaml" -UseBasicParsing
 
+# Variable to store the client URL
+$savedClientUrl = ""
+
 # Create .env file if it doesn't exist
 if (-not (Test-Path ".env")) {
     Write-Host "`nSetting up environment configuration..." -ForegroundColor Cyan
@@ -45,6 +48,9 @@ if (-not (Test-Path ".env")) {
     )
     $clientUrl = Read-Host "Enter your client URL (e.g., http://localhost:3000)"
     $serverWebsocket = Read-Host "Enter your server websocket URL (e.g., ws://localhost:8080)"
+    
+    # Store the client URL for later use
+    $savedClientUrl = $clientUrl
 
     # Create .env file
     @"
@@ -54,6 +60,13 @@ CLIENT_URL=$clientUrl
 NEXT_PUBLIC_CLIENT_URL=$clientUrl
 NEXT_PUBLIC_SERVER_WEBSOCKET=$serverWebsocket
 "@ | Out-File ".env" -Encoding utf8
+} else {
+    # Read the client URL from existing .env file
+    $envContent = Get-Content ".env" | Where-Object { $_ -match '^CLIENT_URL=(.+)' }
+    if ($envContent) {
+        $savedClientUrl = $envContent -replace '^CLIENT_URL=', ''
+        $savedClientUrl = $savedClientUrl.Trim('"').Trim("'")
+    }
 }
 
 # Start services
@@ -65,19 +78,14 @@ Write-Host "Your NFTTools installation is located at: $InstallDir" -ForegroundCo
 Write-Host "Visit your configured CLIENT_URL to access the interface." -ForegroundColor White
 
 # Ask user if they want to open the webpage
-$openBrowser = Read-Host "`nWould you like to open the interface in your default browser? (yes/no)"
-if ($openBrowser.ToLower() -eq 'yes' -or $openBrowser.ToLower() -eq 'y') {
-    # Get the client URL from .env file if it exists
-    if (Test-Path ".env") {
-        $envContent = Get-Content ".env" -Raw
-        if ($envContent -match 'CLIENT_URL=(.+)') {
-            $clientUrl = $matches[1].Trim()
-        }
+if ($savedClientUrl) {
+    $openBrowser = Read-Host "`nWould you like to open the interface in your default browser? (yes/no)"
+    if ($openBrowser.ToLower() -eq 'yes' -or $openBrowser.ToLower() -eq 'y') {
+        Write-Host "Opening $savedClientUrl in your default browser..." -ForegroundColor Cyan
+        Start-Process $savedClientUrl
     }
-    
-    # Open the URL in default browser
-    Write-Host "Opening $clientUrl in your default browser..." -ForegroundColor Cyan
-    Start-Process $clientUrl
+} else {
+    Write-Host "Could not find CLIENT_URL in configuration. Please check your .env file." -ForegroundColor Yellow
 }
 
 Pause
