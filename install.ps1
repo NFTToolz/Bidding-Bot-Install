@@ -1,14 +1,66 @@
-# Allow running downloaded scripts
-Set-ExecutionPolicy Bypass -Scope Process -Force
+# Safe Installation Script for NFTTools
+$ErrorActionPreference = 'Stop'
 
-# Create and navigate to installation directory
+# Create installation directory
 $InstallDir = "$env:USERPROFILE\NFTTools"
-New-Item -ItemType Directory -Force -Path $InstallDir
+Write-Host "Creating installation directory at $InstallDir..." -ForegroundColor Cyan
+New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
 Set-Location -Path $InstallDir
 
-# Download the main script
-$MainScriptUrl = "https://raw.githubusercontent.com/NFTToolz/Bidding-Bot-Install/main/windows.ps1"
-Invoke-WebRequest -Uri $MainScriptUrl -OutFile "setup.ps1"
+# Check for Administrator privileges
+$IsAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")
+if (-not $IsAdmin) {
+    Write-Host "Requesting administrator privileges..." -ForegroundColor Yellow
+    Start-Process PowerShell -Verb RunAs -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command `"cd '$InstallDir'; & '$PSCommandPath'`""
+    exit
+}
 
-# Execute the script
-.\setup.ps1
+# Program Information
+Write-Host "=========================================" -ForegroundColor Cyan
+Write-Host "Welcome to the NFTTools Bidding Bot Setup" -ForegroundColor Cyan
+Write-Host "=========================================" -ForegroundColor Cyan
+
+# Verify Docker installation
+if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
+    Write-Host "Docker is not installed. Please install Docker Desktop first." -ForegroundColor Red
+    Write-Host "Download from: https://www.docker.com/products/docker-desktop" -ForegroundColor Yellow
+    Pause
+    exit 1
+}
+
+# Download compose file
+$ComposeFileUrl = "https://raw.githubusercontent.com/NFTToolz/Bidding-Bot-Install/main/compose.prod.yaml"
+Write-Host "Downloading configuration files..." -ForegroundColor Cyan
+Invoke-WebRequest -Uri $ComposeFileUrl -OutFile "compose.prod.yaml" -UseBasicParsing
+
+# Create .env file if it doesn't exist
+if (-not (Test-Path ".env")) {
+    Write-Host "`nSetting up environment configuration..." -ForegroundColor Cyan
+    
+    # Get user input
+    $emailUsername = Read-Host "Enter your email username"
+    $emailPassword = Read-Host "Enter your email password" -AsSecureString
+    $emailPasswordText = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
+        [Runtime.InteropServices.Marshal]::SecureStringToBSTR($emailPassword)
+    )
+    $clientUrl = Read-Host "Enter your client URL (e.g., http://localhost:3000)"
+    $serverWebsocket = Read-Host "Enter your server websocket URL (e.g., ws://localhost:8080)"
+
+    # Create .env file
+    @"
+EMAIL_USERNAME=$emailUsername
+EMAIL_PASSWORD=$emailPasswordText
+CLIENT_URL=$clientUrl
+NEXT_PUBLIC_CLIENT_URL=$clientUrl
+NEXT_PUBLIC_SERVER_WEBSOCKET=$serverWebsocket
+"@ | Out-File ".env" -Encoding utf8
+}
+
+# Start services
+Write-Host "`nStarting services..." -ForegroundColor Green
+docker compose -f compose.prod.yaml up --build -d
+
+Write-Host "`nInstallation complete!" -ForegroundColor Green
+Write-Host "Your NFTTools installation is located at: $InstallDir" -ForegroundColor Cyan
+Write-Host "Visit your configured CLIENT_URL to access the interface." -ForegroundColor White
+Pause
